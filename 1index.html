@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Словарный Сугроб</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1a237e;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            user-select: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        #stats {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid #4CAF50;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 18px;
+            min-width: 200px;
+        }
+        
+        .stat-value {
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        #wordOverlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            width: 90%;
+            max-width: 600px;
+            display: none;
+            pointer-events: none;
+        }
+        
+        #wordDisplay {
+            font-size: 48px;
+            text-align: center;
+            margin: 20px 0;
+            min-height: 60px;
+            letter-spacing: 3px;
+            font-weight: bold;
+            text-shadow: 
+                3px 3px 0 #000,
+                -1px -1px 0 #000,
+                1px -1px 0 #000,
+                -1px 1px 0 #000,
+                1px 1px 0 #000;
+            padding: 20px 40px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            border: 3px solid #4CAF50;
+        }
+        
+        #feedback {
+            font-size: 28px;
+            text-align: center;
+            min-height: 40px;
+            margin: 15px 0;
+            transition: all 0.3s;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        .correct { 
+            color: #4CAF50; 
+            animation: float 0.5s ease-in-out;
+        }
+        
+        .wrong { 
+            color: #FF5252; 
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        /* ОБНОВЛЕННАЯ МОБИЛЬНАЯ КЛАВИАТУРА */
+        #mobileKeyboard {
+            position: fixed;
+            top: 10px;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid #4CAF50;
+            z-index: 300;
+            display: none;
+            padding: 8px 0;
+            border-radius: 0 0 15px 15px;
+        }
+        
+        .keyboard-title {
+            text-align: center;
+            font-size: 12px;
+            color: #4CAF50;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+        
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin: 4px 0;
+            padding: 0 5px;
+        }
+        
+        .keyboard-key {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            touch-action: manipulation;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .keyboard-key:active {
+            transform: scale(0.9);
+            background: linear-gradient(45deg, #1976D2, #1565C0);
+        }
+        
+        .keyboard-backspace {
+            width: 70px;
+            background: linear-gradient(45deg, #FF5252, #D32F2F);
+            font-size: 14px;
+        }
+        
+        #locationIndicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 15px;
+            border: 2px solid #2196F3;
+            font-size: 16px;
+            color: #FFD700;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        #celebration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .celebration-text {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #FFD700;
+            text-shadow: 3px 3px 0 #000;
+            animation: float 2s ease-in-out infinite;
+        }
+        
+        #restartBtn {
+            padding: 15px 30px;
+            background: linear-gradient(45deg, #4CAF50, #2E7D32);
+            border: 3px solid white;
+            border-radius: 25px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+            min-width: 250px;
+            text-align: center;
+        }
+        
+        #restartBtn:active {
+            transform: scale(0.95);
+        }
+        
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a237e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        
+        .loading-text {
+            font-size: 24px;
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .loading-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #2196F3);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 768px) {
+            #stats {
+                top: 10px;
+                left: 10px;
+                padding: 10px;
+            }
+            
+            .stat-row {
+                font-size: 16px;
+                min-width: 180px;
+            }
+            
+            #wordDisplay {
+                font-size: 32px;
+                padding: 15px 25px;
+            }
+            
+            #locationIndicator {
+                top: 60px; /* Смещаем ниже клавиатуры */
+                right: 10px;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+            
+            .celebration-text {
+                font-size: 36px;
+                padding: 0 20px;
+            }
+            
+            #restartBtn {
+                min-width: 200px;
+                font-size: 18px;
+                padding: 12px 24px;
+            }
+            
+            .loading-bar {
+                width: 250px;
+            }
+            
+            /* Адаптивная клавиатура для очень маленьких экранов */
+            @media (max-width: 360px) {
+                .keyboard-key {
+                    width: 28px;
+                    height: 28px;
+                    font-size: 14px;
+                }
+                
+                .keyboard-backspace {
+                    width: 60px;
+                }
+            }
+        }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingScreen">
+        <div style="font-size: 48px; color: #FFD700; margin-bottom: 20px;">❄️ Словарный Сугроб ❄️</div>
+        <div class="loading-text" id="loadingText">Загрузка изображений...</div>
+        <div class="loading-bar">
+            <div id="loadingFill" class="loading-fill" style="width: 0%"></div>
+        </div>
+    </div>
+    
+    <div id="gameContainer" style="display: none;">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="stats">
+            <div class="stat-row">
+                <span>Жизни:</span>
+                <span id="lives" class="stat-value">❤️❤️❤️</span>
+            </div>
+            <div class="stat-row">
+                <span>Слова:</span>
+                <span id="wordsCount" class="stat-value">0/25</span>
+            </div>
+        </div>
+        
+        <div id="locationIndicator">🏙️ Центр города</div>
+        
+        <div id="wordOverlay">
+            <div id="wordDisplay"></div>
+            <div id="feedback"></div>
+        </div>
+        
+        <!-- ОБНОВЛЕННАЯ КЛАВИАТУРА ТОЛЬКО С ГЛАСНЫМИ -->
+        <div id="mobileKeyboard">
+            <div class="keyboard-title">Введите гласные буквы:</div>
+            <div class="keyboard-row">
+                <div class="keyboard-key" data-letter="а">А</div>
+                <div class="keyboard-key" data-letter="е">Е</div>
+                <div class="keyboard-key" data-letter="ё">Ё</div>
+                <div class="keyboard-key" data-letter="и">И</div>
+                <div class="keyboard-key" data-letter="о">О</div>
+                <div class="keyboard-key" data-letter="у">У</div>
+            </div>
+            <div class="keyboard-row">
+                <div class="keyboard-key" data-letter="ы">Ы</div>
+                <div class="keyboard-key" data-letter="э">Э</div>
+                <div class="keyboard-key" data-letter="ю">Ю</div>
+                <div class="keyboard-key" data-letter="я">Я</div>
+                <div class="keyboard-key keyboard-backspace" data-letter="backspace">← Удалить</div>
+            </div>
+        </div>
+        
+        <div id="celebration">
+            <div class="celebration-text" id="celebrationTitle">🎉 ВСЕ СЛОВА ИЗУЧЕНЫ! 🎉</div>
+            <div style="font-size: 24px; color: #4CAF50; margin-bottom: 40px; text-align: center; max-width: 80%;">
+                Вы стали настоящим мастером русского языка!
+            </div>
+            <div id="restartBtn">🔄 ИГРАТЬ СНОВА</div>
+        </div>
+    </div>
+
+    <script>
+        // Слова для игры
+        const WORDS = [
+            { word: "л.б.ринт", missing: [1, 3], correct: "аи", hint: "запутанные ходы" },
+            { word: "л.генда", missing: [1], correct: "е", hint: "рассказ о героическом прошлом" },
+            { word: "л.гендарный", missing: [1], correct: "е", hint: "ставший легендой" },
+            { word: "л.леять", missing: [1], correct: "е", hint: "нежно заботиться" },
+            { word: "л.б.рал", missing: [1, 3], correct: "ие", hint: "сторонник свободы" },
+            { word: "л.б.ральный", missing: [1, 3], correct: "ие", hint: "свободный, терпимый" },
+            { word: "м.жор", missing: [1], correct: "а", hint: "музыкальный лад, выражающий бодрое, радостное настроение" },
+            { word: "м.жорный", missing: [1], correct: "а", hint: "бодрый, радостный (о музыке)" },
+            { word: "м.териал", missing: [1], correct: "а", hint: "вещество, исходник" },
+            { word: "м.териальный", missing: [1], correct: "а", hint: "вещественный, реальный" },
+            { word: "м.териализм", missing: [1], correct: "а", hint: "философское направление" },
+            { word: "м.териализовать", missing: [1], correct: "а", hint: "воплощать в жизнь" },
+            { word: "мгн.вение", missing: [3], correct: "о", hint: "очень короткий промежуток времени" },
+            { word: "мгн.венный", missing: [3], correct: "о", hint: "очень быстрый, мгновенный" },
+            { word: "м.нтал.тет", missing: [1, 6], correct: "еи", hint: "склад ума, мышления" },
+            { word: "м.нтальный", missing: [1], correct: "е", hint: "относящийся к уму" },
+            { word: "м.р.диан", missing: [1, 3], correct: "еа", hint: "линия долготы на глобусе" },
+            { word: "м.роприятие", missing: [1], correct: "е", hint: "организованное действие" },
+            { word: "м.тафора", missing: [1], correct: "е", hint: "образное выражение" },
+            { word: "м.тафорический", missing: [1], correct: "е", hint: "образный, иносказательный" },
+            { word: "м.ханизм", missing: [1], correct: "е", hint: "устройство, система" },
+            { word: "м.ханический", missing: [1], correct: "е", hint: "действующий как механизм" },
+            { word: "м.нерал", missing: [1], correct: "и", hint: "природное неорганическое вещество" },
+            { word: "м.неральный", missing: [1], correct: "и", hint: "содержащий минералы" },
+            { word: "м.нор", missing: [1], correct: "и", hint: "музыкальный лад, выражающий грустное, печальное настроение" },
+            { word: "м.норный", missing: [1], correct: "и", hint: "грустный, печальный" },
+            { word: "м.н.лит", missing: [1, 3], correct: "оо", hint: "единая каменная глыба" },
+            { word: "м.н..литный", missing: [1, 3, 4], correct: "ооо", hint: "составляющий единое целое" },
+            { word: "м.р.торий", missing: [1, 3], correct: "оа", hint: "временный запрет" },
+            { word: "м.тив", missing: [1], correct: "о", hint: "причина, побуждение к действию" },
+            { word: "м.тивировать", missing: [1], correct: "о", hint: "побуждать к действию" },
+            { word: "м.тивация", missing: [1], correct: "о", hint: "побуждение к действию" },
+            { word: "м.теж", missing: [1], correct: "я", hint: "восстание, бунт" },
+            { word: "м.тежный", missing: [1], correct: "я", hint: "мятежный, бунтарский" }
+        ];
+
+        // Локации с фонами
+        const LOCATIONS = [
+            { name: "🏙️ Центр города", bg: "winter_background.png" },
+            { name: "📚 Школьный район", bg: "school_district.png" },
+            { name: "🏛️ Исторический квартал", bg: "historic_district.png" },
+            { name: "🎭 Театральная площадь", bg: "theater_square.png" },
+            { name: "🏡 Тихий переулок", bg: "quiet_alley.png" },
+            { name: "🌳 Парковая зона", bg: "park_area.png" },
+            { name: "🏫 Школьный двор", bg: "school_yard.png" },
+            { name: "🏢 Офисный квартал", bg: "office_district.png" },
+            { name: "🏭 Заводская улица", bg: "factory_street.png" },
+            { name: "🚧 Строительная площадка", bg: "construction_site.png" }
+        ];
+
+        // Игровые переменные
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameActive = true;
+        let lives = 3;
+        let learnedWords = [];
+        let currentWord = null;
+        let currentSelection = [];
+        let currentMissingIndex = 0;
+        
+        let player = { 
+            x: 0, 
+            y: 0, 
+            width: 80, 
+            height: 120, 
+            direction: 'right',
+            velocity: 0,
+            maxSpeed: 8,
+            acceleration: 0.5,
+            friction: 0.9
+        };
+        
+        let snowdrifts = [];
+        let particles = [];
+        let snowflakes = [];
+        let currentLocation = 0;
+        let cameraX = 0;
+        const worldWidth = 4000;
+        let gamePaused = false;
+
+        // Загруженные изображения
+        const images = {
+            janitor_left: null,
+            janitor_right: null,
+            snowdrift: null,
+            roof: null,
+            backgrounds: []
+        };
+
+        // DOM элементы
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingText = document.getElementById('loadingText');
+        const loadingFill = document.getElementById('loadingFill');
+        const gameContainer = document.getElementById('gameContainer');
+        const livesElement = document.getElementById('lives');
+        const wordsCountElement = document.getElementById('wordsCount');
+        const locationIndicator = document.getElementById('locationIndicator');
+        const wordOverlay = document.getElementById('wordOverlay');
+        const wordDisplay = document.getElementById('wordDisplay');
+        const feedbackElement = document.getElementById('feedback');
+        const mobileKeyboard = document.getElementById('mobileKeyboard');
+        const celebration = document.getElementById('celebration');
+        const restartBtn = document.getElementById('restartBtn');
+        const keyboardKeys = document.querySelectorAll('.keyboard-key');
+
+        // Загрузка изображений
+        function loadImages() {
+            const imageFiles = [
+                { key: 'janitor_left', src: 'janitor_left.png' },
+                { key: 'janitor_right', src: 'janitor_right.png' },
+                { key: 'snowdrift', src: 'snowdrift.png' },
+                { key: 'roof', src: 'roof.png' },
+                ...LOCATIONS.map((loc, i) => ({ 
+                    key: `bg_${i}`, 
+                    src: loc.bg,
+                    isBackground: true 
+                }))
+            ];
+
+            let loadedCount = 0;
+            const totalCount = imageFiles.length;
+
+            imageFiles.forEach((file) => {
+                const img = new Image();
+                img.onload = () => {
+                    if (file.isBackground) {
+                        images.backgrounds.push(img);
+                    } else {
+                        images[file.key] = img;
+                    }
+                    loadedCount++;
+                    
+                    const progress = Math.round((loadedCount / totalCount) * 100);
+                    loadingFill.style.width = `${progress}%`;
+                    loadingText.textContent = `Загружено: ${loadedCount}/${totalCount} изображений`;
+                    
+                    if (loadedCount === totalCount) {
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                            gameContainer.style.display = 'block';
+                            initGame();
+                        }, 500);
+                    }
+                };
+                
+                img.onerror = () => {
+                    console.warn(`Не удалось загрузить: ${file.src}`);
+                    // Создаем placeholder
+                    const canvas = document.createElement('canvas');
+                    if (file.key.includes('janitor')) {
+                        canvas.width = 80;
+                        canvas.height = 120;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Placeholder для дворника
+                        ctx.fillStyle = file.key.includes('left') ? '#FF5722' : '#FF9800';
+                        ctx.fillRect(0, 0, 80, 120);
+                        
+                        // Голова
+                        ctx.fillStyle = '#FFCCBC';
+                        ctx.beginPath();
+                        ctx.arc(40, 40, 25, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Тело
+                        ctx.fillStyle = '#3F51B5';
+                        ctx.fillRect(20, 70, 40, 40);
+                    } else if (file.key === 'snowdrift') {
+                        canvas.width = 70;
+                        canvas.height = 50;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Placeholder для сугроба
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.beginPath();
+                        ctx.ellipse(35, 25, 35, 25, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (file.isBackground) {
+                        canvas.width = 800;
+                        canvas.height = 600;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Градиентный фон
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+                        gradient.addColorStop(0, '#1a237e');
+                        gradient.addColorStop(1, '#0d47a1');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, 800, 600);
+                    }
+                    
+                    if (file.isBackground) {
+                        images.backgrounds.push(canvas);
+                    } else {
+                        images[file.key] = canvas;
+                    }
+                    
+                    loadedCount++;
+                    const progress = Math.round((loadedCount / totalCount) * 100);
+                    loadingFill.style.width = `${progress}%`;
+                    
+                    if (loadedCount === totalCount) {
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                            gameContainer.style.display = 'block';
+                            initGame();
+                        }, 500);
+                    }
+                };
+                
+                img.src = file.src;
+            });
+        }
+
+        // Инициализация игры
+        function initGame() {
+            gameActive = true;
+            gamePaused = false;
+            
+            resizeCanvas();
+            
+            // Начальная позиция игрока
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - player.height - 50;
+            cameraX = worldWidth / 2 - canvas.width / 2;
+            
+            // Сброс игровых переменных
+            lives = 3;
+            learnedWords = [];
+            snowdrifts = [];
+            particles = [];
+            snowflakes = [];
+            currentLocation = 0;
+            
+            // Создаем снежинки
+            initSnowflakes();
+            
+            // Создаем сугробы
+            createSnowdrifts();
+            
+            // Обновляем UI
+            updateUI();
+            
+            // Запускаем игровой цикл
+            gameLoop();
+        }
+
+        // Создание снежинок
+        function initSnowflakes() {
+            snowflakes = [];
+            for (let i = 0; i < 100; i++) {
+                snowflakes.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 3 + 1,
+                    speed: Math.random() * 2 + 1,
+                    sway: Math.random() * 0.5,
+                    opacity: 0.3 + Math.random() * 0.7
+                });
+            }
+        }
+
+        // Создание сугробов
+        function createSnowdrifts() {
+            snowdrifts = [];
+            
+            // Создаем 8-10 сугробов
+            const count = 8 + Math.floor(Math.random() * 3);
+            
+            for (let i = 0; i < count; i++) {
+                let x, validPosition, attempts = 0;
+                
+                do {
+                    x = 100 + Math.random() * (worldWidth - 200);
+                    validPosition = true;
+                    
+                    // Проверяем расстояние до других сугробов
+                    for (const snowdrift of snowdrifts) {
+                        if (Math.abs(snowdrift.x - x) < 150) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    
+                    attempts++;
+                    if (attempts > 100) {
+                        x = 100 + i * 200;
+                        break;
+                    }
+                } while (!validPosition);
+                
+                // Выбираем случайное слово
+                const availableWords = WORDS.filter(word => !learnedWords.includes(word.word));
+                const wordData = availableWords.length > 0 
+                    ? availableWords[Math.floor(Math.random() * availableWords.length)]
+                    : WORDS[Math.floor(Math.random() * WORDS.length)];
+                
+                const snowdrift = {
+                    x: x,
+                    y: canvas.height - 100,
+                    width: 70,
+                    height: 50,
+                    word: wordData,
+                    collected: false,
+                    wobble: Math.random() * Math.PI * 2,
+                    wobbleSpeed: 0.02 + Math.random() * 0.03,
+                    wobbleAmount: 2 + Math.random() * 3
+                };
+                
+                snowdrifts.push(snowdrift);
+            }
+        }
+
+        // Обновление игры
+        function updateGame() {
+            if (!gameActive || gamePaused) return;
+            
+            // Обновляем движение игрока
+            updatePlayer();
+            
+            // Обновляем камеру
+            updateCamera();
+            
+            // Обновляем анимацию сугробов
+            updateSnowdrifts();
+            
+            // Обновляем частицы
+            updateParticles();
+            
+            // Обновляем снежинки
+            updateSnowflakes();
+            
+            // Проверяем смену локации
+            checkLocationChange();
+        }
+
+        // Обновление движения игрока
+        function updatePlayer() {
+            // Применяем трение
+            player.velocity *= player.friction;
+            
+            // Если скорость очень маленькая, останавливаем
+            if (Math.abs(player.velocity) < 0.1) {
+                player.velocity = 0;
+            }
+            
+            // Двигаем игрока
+            player.x += player.velocity;
+            
+            // Ограничиваем движение игрока в мировых координатах
+            const worldPlayerX = cameraX + player.x;
+            if (worldPlayerX < 50) {
+                player.x = 50 - cameraX;
+                player.velocity = 0;
+            } else if (worldPlayerX > worldWidth - 50 - player.width) {
+                player.x = worldWidth - 50 - player.width - cameraX;
+                player.velocity = 0;
+            }
+        }
+
+        // Обновление камеры
+        function updateCamera() {
+            const targetCameraX = (cameraX + player.x) - canvas.width / 2;
+            
+            // Плавное движение камеры
+            cameraX += (targetCameraX - cameraX) * 0.1;
+            
+            // Ограничиваем камеру
+            cameraX = Math.max(0, Math.min(cameraX, worldWidth - canvas.width));
+        }
+
+        // Обновление анимации сугробов
+        function updateSnowdrifts() {
+            snowdrifts.forEach(snowdrift => {
+                // Анимация покачивания
+                snowdrift.wobble += snowdrift.wobbleSpeed;
+                const wobbleX = Math.sin(snowdrift.wobble) * snowdrift.wobbleAmount;
+                
+                // Позиция на экране
+                snowdrift.screenX = snowdrift.x - cameraX + wobbleX;
+                
+                // Проверяем столкновение с игроком
+                if (!snowdrift.collected && !gamePaused && !currentWord) {
+                    if (checkCollision(player, {
+                        x: snowdrift.screenX,
+                        y: snowdrift.y,
+                        width: snowdrift.width,
+                        height: snowdrift.height
+                    })) {
+                        startWordGame(snowdrift);
+                    }
+                }
+            });
+        }
+
+        // Обновление частиц
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life -= 0.02;
+                particle.vy += 0.1; // Гравитация
+                
+                if (particle.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Обновление снежинки
+        function updateSnowflakes() {
+            snowflakes.forEach(flake => {
+                flake.y += flake.speed;
+                flake.x += Math.sin(flake.y * 0.01) * flake.sway;
+                
+                if (flake.y > canvas.height) {
+                    flake.y = -10;
+                    flake.x = Math.random() * canvas.width;
+                }
+                
+                // Снежинки движутся с камерой
+                flake.x -= player.velocity * 0.1;
+                
+                if (flake.x < -10) flake.x = canvas.width + 10;
+                if (flake.x > canvas.width + 10) flake.x = -10;
+            });
+        }
+
+        // Проверка смены локации
+        function checkLocationChange() {
+            const worldX = cameraX + player.x;
+            const locationIndex = Math.floor((worldX / worldWidth) * LOCATIONS.length);
+            
+            if (locationIndex !== currentLocation) {
+                currentLocation = Math.max(0, Math.min(locationIndex, LOCATIONS.length - 1));
+                locationIndicator.textContent = LOCATIONS[currentLocation].name;
+                
+                // Создаем частицы для эффекта смены локации
+                createParticles('#2196F3', canvas.width/2, canvas.height/2, 30);
+            }
+        }
+
+        // Проверка столкновения
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Начало игры со словом
+        function startWordGame(snowdrift) {
+            if (gamePaused || currentWord) return;
+            
+            currentWord = snowdrift.word;
+            snowdrift.collected = true;
+            currentSelection = new Array(currentWord.correct.length).fill(null);
+            currentMissingIndex = 0;
+            
+            gamePaused = true;
+            showWordOverlay();
+            
+            // На мобильных показываем клавиатуру
+            if (isMobile()) {
+                mobileKeyboard.style.display = 'block';
+                // Поднимаем индикатор локации выше, чтобы не перекрывался
+                locationIndicator.style.top = '80px';
+            }
+        }
+
+        // Показ слова
+        function showWordOverlay() {
+            updateWordDisplay();
+            wordOverlay.style.display = 'block';
+        }
+
+        // Скрытие слова
+        function hideWordOverlay() {
+            wordOverlay.style.display = 'none';
+            feedbackElement.textContent = '';
+            feedbackElement.className = '';
+            currentWord = null;
+            gamePaused = false;
+            
+            if (isMobile()) {
+                mobileKeyboard.style.display = 'none';
+                // Возвращаем индикатор локации на место
+                locationIndicator.style.top = '20px';
+            }
+        }
+
+        // Обновление отображения слова
+        function updateWordDisplay() {
+            if (!currentWord) return;
+            
+            let display = '';
+            let missingIndex = 0;
+            
+            for (let i = 0; i < currentWord.word.length; i++) {
+                if (currentWord.missing.includes(i)) {
+                    const userLetter = currentSelection[missingIndex];
+                    if (userLetter) {
+                        const correctLetter = currentWord.correct[missingIndex];
+                        if (userLetter === correctLetter) {
+                            display += `<span style="color: #4CAF50;">${userLetter}</span>`;
+                        } else {
+                            display += `<span style="color: #FF5252;">${userLetter}</span>`;
+                        }
+                    } else {
+                        display += '<span style="color: #2196F3; border-bottom: 2px solid #2196F3;">_</span>';
+                    }
+                    missingIndex++;
+                } else {
+                    display += currentWord.word[i];
+                }
+            }
+            
+            wordDisplay.innerHTML = display;
+        }
+
+        // Выбор буквы
+        function selectLetter(letter) {
+            if (!currentWord || currentMissingIndex >= currentWord.correct.length || !gamePaused) return;
+            
+            currentSelection[currentMissingIndex] = letter;
+            updateWordDisplay();
+            
+            const correctLetter = currentWord.correct[currentMissingIndex];
+            const isCorrect = letter === correctLetter;
+            
+            if (isCorrect) {
+                feedbackElement.textContent = '✓ Правильно!';
+                feedbackElement.className = 'correct';
+                
+                // Эффект частиц
+                createParticles('#4CAF50', canvas.width/2, canvas.height/2, 15);
+                
+                currentMissingIndex++;
+                
+                if (currentMissingIndex >= currentWord.correct.length) {
+                    completeWord(true);
+                    return;
+                }
+            } else {
+                feedbackElement.textContent = '✗ Неправильно';
+                feedbackElement.className = 'wrong';
+                loseLife();
+                
+                // Эффект частиц
+                createParticles('#FF5252', canvas.width/2, canvas.height/2, 15);
+                
+                currentMissingIndex++;
+                
+                if (currentMissingIndex >= currentWord.correct.length) {
+                    completeWord(false);
+                    return;
+                }
+            }
+        }
+
+        // Завершение слова
+        function completeWord(isCorrect) {
+            if (isCorrect) {
+                if (!learnedWords.includes(currentWord.word)) {
+                    learnedWords.push(currentWord.word);
+                }
+                
+                // Эффект разрушения сугроба
+                const snowdrift = snowdrifts.find(s => s.word === currentWord);
+                if (snowdrift) {
+                    explodeSnowdrift(snowdrift);
+                    snowdrifts = snowdrifts.filter(s => s !== snowdrift);
+                    
+                    // Создаем новый сугроб через некоторое время
+                    setTimeout(() => {
+                        if (snowdrifts.length < 8) {
+                            createNewSnowdrift();
+                        }
+                    }, 1000);
+                }
+                
+                // Проверяем завершение игры
+                if (learnedWords.length >= 25) {
+                    endGame(true);
+                }
+            }
+            
+            updateUI();
+            
+            setTimeout(() => {
+                hideWordOverlay();
+            }, 1000);
+        }
+
+        // Создание нового сугроба
+        function createNewSnowdrift() {
+            let x, validPosition, attempts = 0;
+            
+            do {
+                x = 100 + Math.random() * (worldWidth - 200);
+                validPosition = true;
+                
+                // Проверяем расстояние до других сугробов
+                for (const snowdrift of snowdrifts) {
+                    if (Math.abs(snowdrift.x - x) < 150) {
+                        validPosition = false;
+                        break;
+                    }
+                }
+                
+                // Проверяем расстояние до игрока
+                const playerWorldX = cameraX + player.x;
+                if (Math.abs(playerWorldX - x) < 200) {
+                    validPosition = false;
+                }
+                
+                attempts++;
+                if (attempts > 100) {
+                    x = 100 + snowdrifts.length * 200;
+                    break;
+                }
+            } while (!validPosition);
+            
+            // Выбираем случайное слово
+            const availableWords = WORDS.filter(word => !learnedWords.includes(word.word));
+            const wordData = availableWords.length > 0 
+                ? availableWords[Math.floor(Math.random() * availableWords.length)]
+                : WORDS[Math.floor(Math.random() * WORDS.length)];
+            
+            const snowdrift = {
+                x: x,
+                y: canvas.height - 100,
+                width: 70,
+                height: 50,
+                word: wordData,
+                collected: false,
+                wobble: Math.random() * Math.PI * 2,
+                wobbleSpeed: 0.02 + Math.random() * 0.03,
+                wobbleAmount: 2 + Math.random() * 3
+            };
+            
+            snowdrifts.push(snowdrift);
+        }
+
+        // Эффект разрушения сугроба
+        function explodeSnowdrift(snowdrift) {
+            const screenX = snowdrift.x - cameraX;
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: screenX + snowdrift.width/2,
+                    y: snowdrift.y + snowdrift.height/2,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8 - 4,
+                    life: 1,
+                    size: Math.random() * 3 + 2,
+                    color: '#FFFFFF'
+                });
+            }
+        }
+
+        // Создание частиц
+        function createParticles(color, x, y, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6 - 2,
+                    life: 1,
+                    size: Math.random() * 4 + 2,
+                    color: color
+                });
+            }
+        }
+
+        // Потеря жизни
+        function loseLife() {
+            lives--;
+            
+            if (lives <= 0) {
+                endGame(false);
+            }
+            
+            updateUI();
+            
+            // Эффект при потере жизни
+            createParticles('#FF5252', player.x + player.width/2, player.y + player.height/2, 20);
+        }
+
+        // Конец игры
+        function endGame(isVictory) {
+            gameActive = false;
+            gamePaused = true;
+            
+            if (isVictory) {
+                document.getElementById('celebrationTitle').textContent = '🎉 ВСЕ СЛОВА ИЗУЧЕНЫ! 🎉';
+            } else {
+                document.getElementById('celebrationTitle').textContent = '❄️ ИГРА ОКОНЧЕНА ❄️';
+            }
+            
+            celebration.style.display = 'flex';
+            
+            // Скрываем клавиатуру если была открыта
+            mobileKeyboard.style.display = 'none';
+        }
+
+        // Обновление UI
+        function updateUI() {
+            livesElement.textContent = '❤️'.repeat(Math.max(0, lives));
+            wordsCountElement.textContent = `${learnedWords.length}/25`;
+        }
+
+        // Проверка мобильного устройства
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        // Отрисовка игры
+        function drawGame() {
+            // Очищаем canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисуем фон (повторяем по горизонтали)
+            if (images.backgrounds[currentLocation]) {
+                const bg = images.backgrounds[currentLocation];
+                const pattern = ctx.createPattern(bg, 'repeat-x');
+                ctx.fillStyle = pattern;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // Рисуем дорогу
+            ctx.fillStyle = 'rgba(55, 71, 79, 0.9)';
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            
+            // Разделительная полоса
+            ctx.strokeStyle = '#ffd600';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([20, 15]);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 25);
+            ctx.lineTo(canvas.width, canvas.height - 25);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Рисуем снежинки
+            snowflakes.forEach(flake => {
+                ctx.globalAlpha = flake.opacity;
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(flake.x, flake.y, flake.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            
+            // Рисуем частицы
+            particles.forEach(particle => {
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            
+            // Рисуем сугробы
+            snowdrifts.forEach(snowdrift => {
+                if (snowdrift.screenX && snowdrift.screenX > -100 && snowdrift.screenX < canvas.width + 100) {
+                    if (images.snowdrift) {
+                        ctx.drawImage(
+                            images.snowdrift,
+                            snowdrift.screenX,
+                            snowdrift.y,
+                            snowdrift.width,
+                            snowdrift.height
+                        );
+                    } else {
+                        // Placeholder
+                        ctx.fillStyle = snowdrift.collected ? '#78909c' : '#FFFFFF';
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            snowdrift.screenX + snowdrift.width/2,
+                            snowdrift.y + snowdrift.height/2,
+                            snowdrift.width/2,
+                            snowdrift.height/2,
+                            0, 0, Math.PI * 2
+                        );
+                        ctx.fill();
+                    }
+                }
+            });
+            
+            // Рисуем игрока
+            const playerImage = player.direction === 'left' ? images.janitor_left : images.janitor_right;
+            if (playerImage) {
+                // Анимация ходьбы
+                const walkOffset = Math.sin(Date.now() * 0.01) * 3;
+                ctx.drawImage(
+                    playerImage, 
+                    player.x, 
+                    player.y + walkOffset, 
+                    player.width, 
+                    player.height
+                );
+            } else {
+                // Placeholder
+                ctx.fillStyle = player.direction === 'left' ? '#FF5722' : '#FF9800';
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                
+                // Голова
+                ctx.fillStyle = '#FFCCBC';
+                ctx.beginPath();
+                ctx.arc(player.x + player.width/2, player.y + 40, 25, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Рисуем крышу (если есть)
+            if (images.roof && Math.random() > 0.7) {
+                ctx.globalAlpha = 0.8;
+                ctx.drawImage(
+                    images.roof,
+                    canvas.width - 200,
+                    canvas.height - 250,
+                    200,
+                    150
+                );
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Игровой цикл
+        function gameLoop() {
+            updateGame();
+            drawGame();
+            
+            if (gameActive) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Изменение размера canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - player.height - 50;
+            
+            // Пересоздаем снежинки для нового размера
+            initSnowflakes();
+        }
+
+        // Управление игроком
+        let keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            
+            // Управление движением
+            if (gameActive && !gamePaused) {
+                if (e.key === 'ArrowLeft' || e.key === 'a') {
+                    player.direction = 'left';
+                    player.velocity = Math.max(player.velocity - player.acceleration, -player.maxSpeed);
+                } else if (e.key === 'ArrowRight' || e.key === 'd') {
+                    player.direction = 'right';
+                    player.velocity = Math.min(player.velocity + player.acceleration, player.maxSpeed);
+                }
+            }
+            
+            // Управление вводом букв
+            if (currentWord && gamePaused) {
+                const key = e.key.toLowerCase();
+                const russianVowels = 'аеёиоуыэюя'; // Только гласные
+                
+                if (russianVowels.includes(key)) {
+                    selectLetter(key);
+                    e.preventDefault();
+                } else if (e.key === 'Backspace') {
+                    if (currentMissingIndex > 0) {
+                        currentMissingIndex--;
+                        currentSelection[currentMissingIndex] = null;
+                        updateWordDisplay();
+                    }
+                    e.preventDefault();
+                }
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Сенсорное управление
+        let touchStartX = 0;
+        let touchStartTime = 0;
+        
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameActive || gamePaused) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartTime = Date.now();
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            if (!gameActive || gamePaused) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - touchStartX;
+            
+            // Определяем направление движения
+            if (Math.abs(deltaX) > 10) {
+                player.direction = deltaX > 0 ? 'right' : 'left';
+                player.velocity = Math.min(Math.max(deltaX * 0.2, -player.maxSpeed), player.maxSpeed);
+                touchStartX = touch.clientX;
+            }
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            if (!gameActive || gamePaused) return;
+            
+            const touch = e.changedTouches[0];
+            const touchTime = Date.now() - touchStartTime;
+            
+            // Если было короткое касание (не свайп), проверяем касание сугроба
+            if (touchTime < 200) {
+                checkTouchSnowdrift(touch.clientX, touch.clientY);
+            }
+        });
+
+        // Проверка касания сугроба
+        function checkTouchSnowdrift(touchX, touchY) {
+            if (gamePaused || currentWord) return;
+            
+            for (const snowdrift of snowdrifts) {
+                if (snowdrift.screenX && 
+                    touchX > snowdrift.screenX && 
+                    touchX < snowdrift.screenX + snowdrift.width &&
+                    touchY > snowdrift.y && 
+                    touchY < snowdrift.y + snowdrift.height &&
+                    !snowdrift.collected) {
+                    
+                    startWordGame(snowdrift);
+                    return;
+                }
+            }
+        }
+
+        // Обработчики кнопок мобильной клавиатуры
+        keyboardKeys.forEach(key => {
+            key.addEventListener('click', () => {
+                const letter = key.getAttribute('data-letter');
+                if (letter === 'backspace') {
+                    if (currentMissingIndex > 0) {
+                        currentMissingIndex--;
+                        currentSelection[currentMissingIndex] = null;
+                        updateWordDisplay();
+                    }
+                } else {
+                    selectLetter(letter);
+                }
+            });
+        });
+
+        // Обработчик кнопки рестарта
+        restartBtn.addEventListener('click', () => {
+            celebration.style.display = 'none';
+            initGame();
+        });
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', resizeCanvas);
+
+        // Запуск игры
+        window.addEventListener('load', () => {
+            loadImages();
+        });
+    </script>
+</body>
+</html>
